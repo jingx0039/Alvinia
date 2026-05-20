@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { 
   Users, Plus, Search, Mail, Phone, MapPin, Trash2, Edit, Share2, 
   QrCode, ExternalLink, Globe, Copy, Check, Download, AlertTriangle, 
-  RefreshCw, RefreshCcw, User 
+  RefreshCw, RefreshCcw, User, HardDrive 
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Contact } from "../types";
@@ -31,14 +31,45 @@ export default function Dashboard() {
     setErrorString(null);
     try {
       const res = await fetch("/api/contacts");
-      if (!res.ok) {
-        throw new Error("Could not load contact card directories.");
+      const text = await res.text();
+      
+      if (text.trim().startsWith("<!doctype html>") || text.trim().startsWith("<html")) {
+        throw new Error("AI Studio preview authentication is required / cookies are blocked. Please click the 'Open in New Tab' button in the top-right corner of the preview area to authorize and access the application.");
       }
-      const data = await res.json();
+
+      if (!res.ok) {
+        let details = "";
+        try {
+          const errData = JSON.parse(text);
+          details = errData.details || errData.error || "";
+        } catch (_) {}
+        throw new Error(details ? `Could not load contact card directories: ${details}` : "Could not load contact card directories.");
+      }
+      
+      const data = JSON.parse(text);
       setContacts(data);
     } catch (err: any) {
       console.error("Error retrieving contacts:", err);
-      setErrorString(err.message || "Failed to establish a safe database websocket link.");
+      setErrorString(err.message || "Failed to establish a safe database link.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoFallback = async () => {
+    setLoading(true);
+    setErrorString(null);
+    try {
+      const res = await fetch("/api/config/fallback-memory", {
+        method: "POST"
+      });
+      if (!res.ok) throw new Error("Could not activate demo fallback endpoint.");
+      await fetchContacts();
+    } catch (err: any) {
+      console.error("Failed to activate demo fallback:", err);
+      // Fallback local memory array bypass in absolute worst-case scenario
+      setContacts([]);
+      setErrorString(null);
     } finally {
       setLoading(false);
     }
@@ -237,13 +268,22 @@ export default function Dashboard() {
               <p className="text-zinc-550 text-xs mt-1.5 max-w-md leading-relaxed">
                 {errorString}. The server might be booting up or offline. Please check your system configuration.
               </p>
-              <button 
-                onClick={fetchContacts}
-                className="mt-5 flex items-center gap-2 px-5 py-2.5 bg-rose-100 hover:bg-rose-200 active:scale-95 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-xl text-xs font-semibold transition animate-pulse"
-                id="btn-retry-fetch"
-              >
-                <RefreshCw className="w-3.5 h-3.5" /> Try Reconnecting
-              </button>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                <button 
+                  onClick={fetchContacts}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-rose-150 hover:bg-rose-200 active:scale-95 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                  id="btn-retry-fetch"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 animate-pulse" /> Try Reconnecting
+                </button>
+                <button 
+                  onClick={handleDemoFallback}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 hover:bg-zinc-200 active:scale-95 text-zinc-700 hover:text-zinc-800 border border-zinc-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                  id="btn-activate-demo-fallback"
+                >
+                  <HardDrive className="w-3.5 h-3.5" /> Bypass to Demo Memory Mode
+                </button>
+              </div>
             </div>
           ) : loading ? (
             /* Active Loader */

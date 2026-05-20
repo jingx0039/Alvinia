@@ -151,6 +151,21 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+// POST /api/config/fallback-memory - Force memory mode
+app.post("/api/config/fallback-memory", (req, res) => {
+  mode = "memory";
+  connected = false;
+  dbError = "Demo mode active: forced fallback to memory mode per user action.";
+  console.log("[CARDNET] Forcing Demo Memory Mode fallback per client request.");
+  res.json({
+    configured: !!uri,
+    mode: mode,
+    connected: connected,
+    dbName: "cardnet_in_memory",
+    error: dbError
+  });
+});
+
 // Middleware helper to ensure connection state or perform retry if database was failed
 app.use((req, res, next) => {
   // If we should be on database but disconnected, or if mongoClient isn't connected but URI is set,
@@ -181,6 +196,10 @@ app.get("/api/contacts", async (req, res) => {
       return res.json(sortedMemory);
     }
   } catch (err: any) {
+    if (mode === "database") {
+      connected = false;
+      dbError = err.message || "Database query failure";
+    }
     return res.status(500).json({ error: "Failed to retrieve contacts", details: err.message });
   }
 });
@@ -209,6 +228,10 @@ app.get("/api/contacts/:id", async (req, res) => {
       return res.json(contact);
     }
   } catch (err: any) {
+    if (mode === "database") {
+      connected = false;
+      dbError = err.message || "Database connection failure";
+    }
     return res.status(500).json({ error: "Error retrieving contact", details: err.message });
   }
 });
@@ -252,6 +275,10 @@ app.post("/api/contacts", async (req, res) => {
       return res.status(201).json(newContactDoc);
     }
   } catch (err: any) {
+    if (mode === "database") {
+      connected = false;
+      dbError = err.message || "Database write failure";
+    }
     return res.status(500).json({ error: "Failed to create contact card", details: err.message });
   }
 });
@@ -319,6 +346,10 @@ app.put("/api/contacts/:id", async (req, res) => {
       return res.json(updatedDoc);
     }
   } catch (err: any) {
+    if (mode === "database") {
+      connected = false;
+      dbError = err.message || "Database update failure";
+    }
     return res.status(500).json({ error: "Failed to update contact card", details: err.message });
   }
 });
@@ -348,6 +379,10 @@ app.delete("/api/contacts/:id", async (req, res) => {
       return res.json({ success: true, message: "Contact card deleted from memory" });
     }
   } catch (err: any) {
+    if (mode === "database") {
+      connected = false;
+      dbError = err.message || "Database delete failure";
+    }
     return res.status(500).json({ error: "Failed to delete contact card", details: err.message });
   }
 });
