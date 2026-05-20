@@ -66,6 +66,10 @@ let memoryContacts: any[] = [
   }
 ];
 
+// Global caching for MongoDB connection in Serverless environments (Vercel)
+let cachedClient: MongoClient | null = (global as any)._mongoClient || null;
+let cachedDb: any = (global as any)._mongoDb || null;
+
 // Asymmetric MongoDB Client Initializer
 async function initializeDatabase() {
   if (!uri) {
@@ -77,6 +81,18 @@ async function initializeDatabase() {
 
   try {
     const cleanUri = uri.trim();
+
+    if (cachedClient && cachedDb) {
+      mongoClient = cachedClient;
+      db = cachedDb;
+      dbName = db.databaseName || "cardnet";
+      mode = "database";
+      connected = true;
+      dbError = null;
+      console.log(`[CARDNET] Reused cached MongoDB connection to db: "${dbName}"`);
+      return;
+    }
+
     console.log("[CARDNET] Connecting to MongoDB: ", cleanUri.substring(0, Math.min(cleanUri.length, 25)) + "...");
     
     // Set standard connection and selection timeouts
@@ -88,6 +104,13 @@ async function initializeDatabase() {
     await mongoClient.connect();
     db = mongoClient.db();
     dbName = db.databaseName || "cardnet";
+    
+    // Cache the connection
+    cachedClient = mongoClient;
+    cachedDb = db;
+    (global as any)._mongoClient = mongoClient;
+    (global as any)._mongoDb = db;
+
     mode = "database";
     connected = true;
     dbError = null;
@@ -124,9 +147,12 @@ app.get("/api/config", (req, res) => {
 app.use(async (req, res, next) => {
   // If we should be on database but disconnected, or if mongoClient isn't connected but URI is set,
   // we can attempt a lazy reconnection trigger to recover gracefully
-  if (uri && !connected && mode === "memory") {
-    // Attempt non-blocking reconnection check in background
-    initializeDatabase().catch(() => {});
+  if (uri && !connected) {
+    try {
+      await initializeDatabase();
+    } catch (err) {
+      console.error("[CARDNET] Lazy reconnection failed inside request middleware:", err);
+    }
   }
   next();
 });
@@ -322,6 +348,11 @@ app.delete("/api/contacts/:id", async (req, res) => {
 
 // Vite Middleware & SPA serving
 async function setupViteStaticServing() {
+  if (process.env.VERCEL) {
+    console.log("[CARDNET] Running on Vercel. Static assets serving is offloaded directly to Vercel edge.");
+    return;
+  }
+
   if (process.env.NODE_ENV !== "production") {
     // Mounting Vite middleware in development
     const vite = await createViteServer({
