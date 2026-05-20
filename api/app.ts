@@ -103,10 +103,11 @@ async function initializeDatabase() {
 
     console.log("[CARDNET] Connecting to MongoDB: ", cleanUri.substring(0, Math.min(cleanUri.length, 25)) + "...");
     
-    // Set standard connection and selection timeouts
+    // Set standard connection and selection timeouts, and force IPv4 DNS resolution for reliability on Cloud Serverless
     mongoClient = new MongoClient(cleanUri, { 
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000 
+      serverSelectionTimeoutMS: 5050,
+      connectTimeoutMS: 10050,
+      family: 4
     });
     
     await mongoClient.connect();
