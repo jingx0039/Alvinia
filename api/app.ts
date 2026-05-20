@@ -252,31 +252,32 @@ app.get("/api/contacts/:id", async (req, res) => {
 
 // POST /api/contacts - Create a new contact card
 app.post("/api/contacts", async (req, res) => {
-  try {
-    const contactData = { ...req.body };
-    const newId = new ObjectId(); // Pre-generate standard 24-character ObjectId
-    const createdAt = new Date().toISOString();
+  const contactData = { ...req.body };
+  const newId = new ObjectId(); // Pre-generate standard 24-character ObjectId
+  const createdAt = new Date().toISOString();
 
-    const newContactDoc = {
-      _id: mode === "database" ? newId : newId.toString(),
-      firstName: contactData.firstName || "",
-      lastName: contactData.lastName || "",
-      email: contactData.email || "",
-      phone: contactData.phone || "",
-      title: contactData.title || "",
-      organization: contactData.organization || "",
-      website: contactData.website || "",
-      address: contactData.address || "",
-      avatar: contactData.avatar || "",
-      socials: {
-        linkedin: (contactData.socials && contactData.socials.linkedin) || "",
-        twitter: (contactData.socials && contactData.socials.twitter) || "",
-        github: (contactData.socials && contactData.socials.github) || "",
-        instagram: (contactData.socials && contactData.socials.instagram) || "",
-        facebook: (contactData.socials && contactData.socials.facebook) || ""
-      },
-      createdAt
-    };
+  const newContactDoc = {
+    _id: mode === "database" ? newId : newId.toString(),
+    firstName: contactData.firstName || "",
+    lastName: contactData.lastName || "",
+    email: contactData.email || "",
+    phone: contactData.phone || "",
+    title: contactData.title || "",
+    organization: contactData.organization || "",
+    website: contactData.website || "",
+    address: contactData.address || "",
+    avatar: contactData.avatar || "",
+    socials: {
+      linkedin: (contactData.socials && contactData.socials.linkedin) || "",
+      twitter: (contactData.socials && contactData.socials.twitter) || "",
+      github: (contactData.socials && contactData.socials.github) || "",
+      instagram: (contactData.socials && contactData.socials.instagram) || "",
+      facebook: (contactData.socials && contactData.socials.facebook) || ""
+    },
+    createdAt
+  };
+
+  try {
 
     if (mode === "database" && db) {
       await db.collection("contacts").insertOne({
@@ -312,28 +313,29 @@ app.put("/api/contacts/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid ID format. Must be a 24-char hex string." });
   }
 
-  try {
-    const { _id, createdAt, ...updateData } = req.body;
+  const { _id, createdAt, ...updateData } = req.body;
 
-    // Sanitize subfields to prevent nested structure issues
-    const sanitizedData = {
-      firstName: updateData.firstName ?? "",
-      lastName: updateData.lastName ?? "",
-      email: updateData.email ?? "",
-      phone: updateData.phone ?? "",
-      title: updateData.title ?? "",
-      organization: updateData.organization ?? "",
-      website: updateData.website ?? "",
-      address: updateData.address ?? "",
-      avatar: updateData.avatar ?? "",
-      socials: {
-        linkedin: (updateData.socials && updateData.socials.linkedin) ?? "",
-        twitter: (updateData.socials && updateData.socials.twitter) ?? "",
-        github: (updateData.socials && updateData.socials.github) ?? "",
-        instagram: (updateData.socials && updateData.socials.instagram) ?? "",
-        facebook: (updateData.socials && updateData.socials.facebook) ?? ""
-      }
-    };
+  // Sanitize subfields to prevent nested structure issues
+  const sanitizedData = {
+    firstName: updateData.firstName ?? "",
+    lastName: updateData.lastName ?? "",
+    email: updateData.email ?? "",
+    phone: updateData.phone ?? "",
+    title: updateData.title ?? "",
+    organization: updateData.organization ?? "",
+    website: updateData.website ?? "",
+    address: updateData.address ?? "",
+    avatar: updateData.avatar ?? "",
+    socials: {
+      linkedin: (updateData.socials && updateData.socials.linkedin) ?? "",
+      twitter: (updateData.socials && updateData.socials.twitter) ?? "",
+      github: (updateData.socials && updateData.socials.github) ?? "",
+      instagram: (updateData.socials && updateData.socials.instagram) ?? "",
+      facebook: (updateData.socials && updateData.socials.facebook) ?? ""
+    }
+  };
+
+  try {
 
     if (mode === "database" && db) {
       const result = await db.collection("contacts").updateOne(
