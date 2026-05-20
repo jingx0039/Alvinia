@@ -198,8 +198,14 @@ app.get("/api/contacts", async (req, res) => {
     }
   } catch (err: any) {
     if (mode === "database") {
+      console.error("[CARDNET] Database query failure, falling back to memory mode.", err);
       connected = false;
+      mode = "memory";
       dbError = err.message || "Database query failure";
+      const sortedMemory = [...memoryContacts].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return res.json(sortedMemory);
     }
     return res.status(500).json({ error: "Failed to retrieve contacts", details: err.message });
   }
@@ -230,8 +236,15 @@ app.get("/api/contacts/:id", async (req, res) => {
     }
   } catch (err: any) {
     if (mode === "database") {
+      console.error("[CARDNET] Database query failure, falling back to memory mode.", err);
       connected = false;
+      mode = "memory";
       dbError = err.message || "Database connection failure";
+      const contact = memoryContacts.find(c => c._id === id);
+      if (!contact) {
+        return res.status(404).json({ error: "Contact card not found" });
+      }
+      return res.json(contact);
     }
     return res.status(500).json({ error: "Error retrieving contact", details: err.message });
   }
@@ -277,8 +290,14 @@ app.post("/api/contacts", async (req, res) => {
     }
   } catch (err: any) {
     if (mode === "database") {
+      console.error("[CARDNET] Database connection failure during insert, falling back to memory.", err);
       connected = false;
+      mode = "memory";
       dbError = err.message || "Database write failure";
+      // Because we used an ObjectId in the DB path, make sure it's a string for memory
+      const memoryDoc = { ...newContactDoc, _id: newContactDoc._id.toString() };
+      memoryContacts.unshift(memoryDoc);
+      return res.status(201).json(memoryDoc);
     }
     return res.status(500).json({ error: "Failed to create contact card", details: err.message });
   }
@@ -348,8 +367,24 @@ app.put("/api/contacts/:id", async (req, res) => {
     }
   } catch (err: any) {
     if (mode === "database") {
+      console.error("[CARDNET] Database connection failure during update, falling back to memory.", err);
       connected = false;
+      mode = "memory";
       dbError = err.message || "Database update failure";
+      const index = memoryContacts.findIndex(c => c._id === id);
+      if (index !== -1) {
+        const updatedDoc = {
+          ...memoryContacts[index],
+          ...sanitizedData,
+          socials: {
+            ...memoryContacts[index].socials,
+            ...sanitizedData.socials
+          }
+        };
+        memoryContacts[index] = updatedDoc;
+        return res.json(updatedDoc);
+      }
+      return res.status(404).json({ error: "Contact card not found in memory fallback" });
     }
     return res.status(500).json({ error: "Failed to update contact card", details: err.message });
   }
@@ -381,8 +416,16 @@ app.delete("/api/contacts/:id", async (req, res) => {
     }
   } catch (err: any) {
     if (mode === "database") {
+      console.error("[CARDNET] Database connection failure during delete, falling back to memory.", err);
       connected = false;
+      mode = "memory";
       dbError = err.message || "Database delete failure";
+      const index = memoryContacts.findIndex(c => c._id === id);
+      if (index !== -1) {
+        memoryContacts.splice(index, 1);
+        return res.json({ success: true, message: "Contact card deleted from memory (fallback)" });
+      }
+      return res.status(404).json({ error: "Contact card not found in memory fallback" });
     }
     return res.status(500).json({ error: "Failed to delete contact card", details: err.message });
   }
